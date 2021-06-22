@@ -10,39 +10,6 @@ Max object: OS-wide foreground window get / set
 #include <dwmapi.h>
 
 
-//#include <uiohook.h>
-//#include <tchar.h>
-//#include <inttypes.h>
-//#include <stdarg.h>
-//#include <stdbool.h>
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <string.h>
-//#include <windows.h>
-//#include <Psapi.h>
-//#ifdef HAVE_CONFIG_H
-//#include <config.h>
-//#endif
-//#include <inttypes.h>
-//#include "input_helper.h"
-//#include "logger.h"
-//#include "process.h"
-
-
-//#include <vector>
-//#define snprintf _snprintf
-
-// Native thread errors.
-//#define UIOHOOK_ERROR_THREAD_CREATE				0x10
-
-/*
-struct SavedWindowInfo {
-	bool maximized;
-	LONG style;
-	LONG ex_style;
-	RECT window_rect;
-};
-*/
 
 ////////////////////////// object struct
 typedef struct _globalForegroundWindow 
@@ -285,22 +252,7 @@ void globalForegroundWindow_do_bang(t_globalForegroundWindow *x, t_symbol *s, lo
 	length = GetWindowTextLengthW(hWnd); // length of title
 	length++;// +1 for termination
 
-	/*
-	if (s) //object_post((t_object*)x, "namechange");
-	{
-		LPWSTR wnd_title = (wchar_t *)calloc(length, sizeof(wchar_t));
-
-		GetWindowTextW(hWnd, wnd_title, length); // get title
-		
-		if (wcscmp(wnd_title, wnd_title) == 0) //compare with last seen title
-		{
-			// title unchanged
-			free(wnd_title);
-			return;
-		}
-		// else go on
-	}
-	*/
+	
 
 	DWORD dwPID;
 	GetWindowThreadProcessId(hWnd, &dwPID);
@@ -951,12 +903,7 @@ BOOL CALLBACK globalForegroundWindow_closeWindowsWithPidCallback(HWND hWnd, LPAR
 		{
 			//object_post((t_object*)x, "this window is visible");
 			int success;
-
-			/*success = PostMessage(hWnd, WM_QUERYENDSESSION, 0, ENDSESSION_CLOSEAPP);
-			if (!success) object_error((t_object*)x, "failed to send WM_QUERYENDSESSION message to window");
-
-			success = PostMessage(hWnd, WM_ENDSESSION, 0, ENDSESSION_CLOSEAPP);
-			if (!success) object_error((t_object*)x, "failed to send WM_ENDSESSION message to window");*/
+						
 			if (GetWindow(hWnd, GW_OWNER) == (HWND)0) //better only close the top windows without owner
 			{
 				int success = PostMessage(hWnd, WM_SYSCOMMAND, SC_CLOSE, NULL);
@@ -1120,35 +1067,7 @@ void globalForegroundWindow_do_agent(t_globalForegroundWindow *x, t_symbol *s, l
 {
 	;
 	// leave this Mac only
-	/*
-	if (!argc){ object_error((t_object*)x, "you need an integer arg "); return; }
-	if (atom_gettype(argv) != A_LONG){ object_error((t_object*)x, "your arg is not an integer"); return; }
-	int newState = atom_getlong(argv);
-	HWND hWnd = GetForegroundWindow();
-
-	if (newState)
-	{
-		//switch on agent mode
-		//DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
-		
-		//style |= WS_EX_TOOLWINDOW;  
-		//style &= ~(WS_EX_APPWINDOW);
-
-		ShowWindow(hWnd, SW_HIDE); // hide the window
-		//SetWindowLongPtr(hWnd, GWL_STYLE, style); // set the style
-		//ShowWindow(hWnd, SW_SHOW); // show the window for the new style to come into effect
-	}
-	else
-	{
-		//DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
-		//style |= WS_EX_APPWINDOW;
-		//style &= ~(WS_EX_TOOLWINDOW);
-		//ShowWindow(hWnd, SW_HIDE); // hide the window
-		//SetWindowLongPtr(hWnd, GWL_STYLE, style | ~WS_EX_TOOLWINDOW); // set the style
-
-		ShowWindow(hWnd, SW_SHOW); // show the window for the new style to come into effect
-
-	}*/
+	
 }
 
 #pragma endregion
@@ -1257,7 +1176,6 @@ void globalForegroundWindow_do_fullscreen(t_globalForegroundWindow *x, t_symbol 
 	{
 		globalForegroundWindow_storeFsWindow(x, hWnd); 
 	}
-
 
 }
 #pragma endregion
@@ -1382,8 +1300,6 @@ void *globalForegroundWindow_threadproc(t_globalForegroundWindow *x)
 	}
 
 	
-	//int status = UIOHOOK_FAILURE;
-
 	// Set the thread id we want to signal later.
 	x->hook_thread_id = hook_thread_id;
 
@@ -1420,9 +1336,7 @@ void *globalForegroundWindow_threadproc(t_globalForegroundWindow *x)
 
 	if (x->win_event_hhook != NULL) 
 	{
-		// Set the exit status.
-		//status = UIOHOOK_SUCCESS;
-
+		
 
 		// here's the loop
 		// Block until the thread receives an WM_QUIT request.
@@ -1434,12 +1348,11 @@ void *globalForegroundWindow_threadproc(t_globalForegroundWindow *x)
 		}
 
 
-
 	}
 	else 
 	{
 		object_error((t_object *)x, "SetWindowsHookEx() failed! ");
-		//status = UIOHOOK_ERROR_SET_WINDOWS_HOOK_EX;
+		
 	}
 	
 	// Unregister any hooks that may still be installed.
@@ -1464,77 +1377,6 @@ void *globalForegroundWindow_threadproc(t_globalForegroundWindow *x)
 			object_error((t_object *)x, "Thread failed to remove itself from global array!");
 		}
 	}
-
-	/*
-	switch (status) 
-	
-	
-	{
-	case UIOHOOK_SUCCESS:
-		
-		break;
-
-		// System level errors.
-	case UIOHOOK_ERROR_OUT_OF_MEMORY:
-		object_error((t_object *)x, "Failed to allocate memory. (%#X)\n", status);
-		break;
-
-		// X11 specific errors.
-	case UIOHOOK_ERROR_X_OPEN_DISPLAY:
-		object_error((t_object *)x, "Failed to open X11 display. (%#X)\n", status);
-		break;
-
-	case UIOHOOK_ERROR_X_RECORD_NOT_FOUND:
-		object_error((t_object *)x, "Unable to locate XRecord extension. (%#X)\n", status);
-		break;
-
-	case UIOHOOK_ERROR_X_RECORD_ALLOC_RANGE:
-		object_error((t_object *)x, "Unable to allocate XRecord range. (%#X)\n", status);
-		break;
-
-	case UIOHOOK_ERROR_X_RECORD_CREATE_CONTEXT:
-		object_error((t_object *)x, "Unable to allocate XRecord context. (%#X)\n", status);
-		break;
-
-	case UIOHOOK_ERROR_X_RECORD_ENABLE_CONTEXT:
-		object_error((t_object *)x, "Failed to enable XRecord context. (%#X)\n", status);
-		break;
-
-
-		// Windows specific errors.
-	case UIOHOOK_ERROR_SET_WINDOWS_HOOK_EX:
-		object_error((t_object *)x, "Failed to register low level windows hook. (%#X)\n", status);
-		break;
-
-
-		// Darwin specific errors.
-	case UIOHOOK_ERROR_AXAPI_DISABLED:
-		object_error((t_object *)x, "Failed to enable access for assistive devices. (%#X)\n", status);
-		break;
-
-	case UIOHOOK_ERROR_CREATE_EVENT_PORT:
-		object_error((t_object *)x, "Failed to create apple event port. (%#X)\n", status);
-		break;
-
-	case UIOHOOK_ERROR_CREATE_RUN_LOOP_SOURCE:
-		object_error((t_object *)x, "Failed to create apple run loop source. (%#X)\n", status);
-		break;
-
-	case UIOHOOK_ERROR_GET_RUNLOOP:
-		object_error((t_object *)x, "Failed to acquire apple run loop. (%#X)\n", status);
-		break;
-
-	case UIOHOOK_ERROR_CREATE_OBSERVER:
-		object_error((t_object *)x, "Failed to create apple run loop observer. (%#X)\n", status);
-		break;
-
-		// Default error.
-	case UIOHOOK_FAILURE:
-	default:
-		object_error((t_object *)x, "An unknown hook error occurred. (%#X)\n", status);
-		break;
-	}
-	*/
 
 	
 	systhread_exit(0);
@@ -1944,7 +1786,7 @@ int globalForegroundWindow_storeFsWindow(t_globalForegroundWindow *x, HWND hWnd)
 		}
 	}
 
-	//TODO: test against Win 10
+	
 
 	/* On Windows, fullscreen is something handled by the app itself,
 	// so this can only be a hack that hopefully works for the most of possible target windows
@@ -1971,21 +1813,6 @@ int globalForegroundWindow_storeFsWindow(t_globalForegroundWindow *x, HWND hWnd)
 	//globalForegroundWindow_windowTool(x, hWnd, 6); //disable nc rendering
 	//globalForegroundWindow_windowTool(x, hWnd, 1); //margin = 0
 
-
-	// unused stuff
-	/*
-	 check if window is WS_POPUP
-	if (dwStyle & WS_POPUP){
-		// that window has WS_POPUP
-		object_post((t_object*)x, "this is a popup window");
-	}
-	DWORD dwRemove = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_BORDER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
-	// | WS_DLGFRAME | WS_VSCROLL | WS_HSCROLL
-
-	SetMenu(hWnd, NULL); // remove menu
-	SetWindowLongPtr(hWnd, GWL_STYLE, dwStyle & ~dwRemove); //
-	SetWindowPos(hWnd, 0, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED ); 
-	*/
 	
 	// bookholding
 	for (i = 0; i < 256; i++)
