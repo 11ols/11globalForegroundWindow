@@ -7,7 +7,7 @@ Max object: OS-wide foreground window get / set
 #include "ext_obex.h"						
 
 #include <tlhelp32.h>
-#include <dwmapi.h>
+#include <dwmapi.h> // add dwmapi.lib at linker additional dependencies
 
 
 
@@ -200,7 +200,7 @@ int C74_EXPORT main(void)
 	SYMnoProcName = gensym("<noProcName>");
 	SYMnoTitle = gensym("<noTitle>");
 
-	object_post(NULL,"11globalForegroundWindow 2021/06/17 11OLSEN.DE");
+	object_post(NULL,"11globalForegroundWindow 2022/01/18 11OLSEN.DE");
 
 	return 0;
 }
