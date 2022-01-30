@@ -152,7 +152,7 @@ static t_symbol	*SYMnoTitle;
 
 #pragma region MAIN and New
 
-int C74_EXPORT main(void)
+void ext_main(void *r)
 {	
 	t_class *c;
 	int i;
@@ -200,7 +200,7 @@ int C74_EXPORT main(void)
 	SYMnoProcName = gensym("<noProcName>");
 	SYMnoTitle = gensym("<noTitle>");
 
-	object_post(NULL,"11globalForegroundWindow 2022/01/18 11OLSEN.DE");
+	object_post(NULL,"11globalForegroundWindow 2022/01/30 11OLSEN.DE");
 
 	return 0;
 }

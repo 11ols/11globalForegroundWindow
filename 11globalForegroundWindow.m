@@ -98,7 +98,7 @@ void *globalForegroundWindow_class;
 
 static t_symbol    *emptySym;
 
-int C74_EXPORT main(void)
+void ext_main(void *r)
 {	
 	t_class *c;
 	
@@ -128,7 +128,7 @@ int C74_EXPORT main(void)
 	class_register(CLASS_BOX, c); /* CLASS_NOBOX */
 	globalForegroundWindow_class = c;
     emptySym = gensym("");
-    object_post(NULL, "11globalForegroundWindow 2022/01/18 11OLSEN.DE");
+    object_post(NULL, "11globalForegroundWindow 2022/01/30 11OLSEN.DE");
 	return 0;
 }
 
