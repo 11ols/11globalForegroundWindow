@@ -54,6 +54,9 @@ void globalForegroundWindow_set(t_globalForegroundWindow *x, t_symbol *s, long a
 void globalForegroundWindow_do_set(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
 void globalForegroundWindow_do_setWithNum(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
 
+void globalForegroundWindow_isrunning(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
+void globalForegroundWindow_do_isrunning(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
+
 void globalForegroundWindow_do_topmost(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
 void globalForegroundWindow_topmost(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
 void globalForegroundWindow_do_fullscreen(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
@@ -112,6 +115,7 @@ void ext_main(void *r)
     class_addmethod(c, (method)globalForegroundWindow_getscreens, "getscreens", 0);
     class_addmethod(c, (method)globalForegroundWindow_getwindows, "getwindows", 0);
     class_addmethod(c, (method)globalForegroundWindow_set, "set", A_GIMME, 0);
+    class_addmethod(c, (method)globalForegroundWindow_isrunning, "isrunning", A_GIMME, 0);
     
     class_addmethod(c, (method)globalForegroundWindow_size, "size", A_GIMME, 0);
     class_addmethod(c, (method)globalForegroundWindow_pos, "pos", A_GIMME, 0);
@@ -128,7 +132,7 @@ void ext_main(void *r)
 	class_register(CLASS_BOX, c); /* CLASS_NOBOX */
 	globalForegroundWindow_class = c;
     emptySym = gensym("");
-    object_post(NULL, "11globalForegroundWindow 2022/01/30 11OLSEN.DE");
+    object_post(NULL, "11globalForegroundWindow 2022/03/10 11OLSEN.DE");
 	return 0;
 }
 
@@ -154,7 +158,7 @@ void *globalForegroundWindow_new(t_symbol *s, long argc, t_atom *argv)
         x->event_loop = nil;
         
         /* Check if 'Enable access for assistive devices' is enabled. */
-        if(!AXAPIEnabled())
+        if(!AXIsProcessTrusted()) // AXAPIEnabled() depr.
         {
             object_post((t_object *)x,"Accessibility API is not enabled! Only basic functionality." );
             defer_low(x, (method)globalForegroundWindow_output_noaccess, NULL, 0, NULL);
@@ -630,9 +634,9 @@ void globalForegroundWindow_do_set(t_globalForegroundWindow *x, t_symbol *s, lon
                             
                         } // stopped iterating windows of this app
                         
-                        if (!done) object_error((t_object*)x,"Could not find window with title: %s", titleToMatch);
+                        if (!done) object_error((t_object*)x,"can't find app with name: %s and title: %s", appNameToMatch, titleToMatch);
 
-                    } else object_error((t_object*)x,"can't find windows of app: %s", appNameToMatch);
+                    } else object_error((t_object*)x,"can't find app with name: %s and title: %s", appNameToMatch, titleToMatch);
             
                     if(windows) CFRelease(windows); // release all windows
                     
@@ -657,7 +661,7 @@ void globalForegroundWindow_do_set(t_globalForegroundWindow *x, t_symbol *s, lon
         
     } // stopped iterating runningApps
     
-    if (!done && !appFound) object_error((t_object*)x,"Could not find app: %s", appNameToMatch);
+    if (!done && !appFound) object_error((t_object*)x,"can't find app with name: %s", appNameToMatch);
     
     if(appNameToMatch)
     free(appNameToMatch);
@@ -730,6 +734,61 @@ void globalForegroundWindow_do_setWithNum(t_globalForegroundWindow *x, t_symbol 
     
 }
 
+#pragma mark ISRUNNING
+void globalForegroundWindow_isrunning(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv)
+{
+    defer_low(x, (method)globalForegroundWindow_do_isrunning, s, argc, argv);
+}
+void globalForegroundWindow_do_isrunning(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv)
+{
+    t_atom as[3];
+    char * appNameToMatch = NULL;
+    if (!argc) return;
+    
+    // get the string from arg 1
+    appNameToMatch = calloc( strlen(atom_getsym(argv)->s_name)+1 ,sizeof(char) );
+    strcpy(appNameToMatch,atom_getsym(argv)->s_name);
+    
+    // get all running apps
+    NSArray *runningApps=[[NSWorkspace sharedWorkspace]runningApplications];
+    int appFound = false;
+    
+    // iterate running apps
+    for (NSRunningApplication* app  in runningApps)
+    {
+        pid_t pid = [app processIdentifier];
+       
+        // GET NAME OF APP
+        int ret;
+        char namebuf[PROC_PIDPATHINFO_MAXSIZE];
+        ret = proc_name(pid, namebuf, sizeof(namebuf));
+        
+        if (namebuf)
+        {
+            // we got the app name now compare with user input
+            if ( !strcmp(namebuf, appNameToMatch))
+            {
+                // this app matches the name we are looking for !!
+                appFound = true;
+                break;
+                
+            } // name of app doesn't match
+        } // could not get app name
+    } // stopped iterating runningApps
+    
+    atom_setsym(as, gensym("isrunning")); 
+    atom_setsym(as+1, atom_getsym(argv)); //use input appname sym
+    
+    if (appFound)
+        atom_setlong(as+2, 1);
+    else
+        atom_setlong(as+2, 0);
+    
+    outlet_list(x->outdump, 0L, 3, as);
+    
+    if(appNameToMatch)
+    free(appNameToMatch);
+}
 
 
 #pragma mark QUITAPP

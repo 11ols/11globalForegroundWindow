@@ -76,6 +76,9 @@ void	globalForegroundWindow_set(t_globalForegroundWindow *x, t_symbol *s, long a
 void	globalForegroundWindow_do_set(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
 void	globalForegroundWindow_do_setWithNum(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
 
+void	globalForegroundWindow_isrunning(t_globalForegroundWindow* x, t_symbol* s, long argc, t_atom* argv);
+void	globalForegroundWindow_do_isrunning(t_globalForegroundWindow* x, t_symbol* s, long argc, t_atom* argv);
+
 void	globalForegroundWindow_do_topmost(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
 void	globalForegroundWindow_topmost(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
 void	globalForegroundWindow_do_fullscreen(t_globalForegroundWindow *x, t_symbol *s, long argc, t_atom *argv);
@@ -106,6 +109,7 @@ BOOL CALLBACK	globalForegroundWindow_closeWindowsWithProcNameCallback(HWND hWnd,
 BOOL CALLBACK	globalForegroundWindow_theMonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData);
 BOOL CALLBACK	globalForegroundWindow_setWindowWithProcNameCallback(HWND hWnd, LPARAM lparam);
 BOOL CALLBACK	globalForegroundWindow_setWindowWithProcNameAndTitleCallback(HWND hWnd, LPARAM lparam);
+BOOL CALLBACK	globalForegroundWindow_findWindowWithProcNameCallback(HWND hWnd, LPARAM lparam);
 
 //Helper
 void	globalForegroundWindow_activateWindow(t_globalForegroundWindow *x, HWND hWnd);
@@ -169,6 +173,7 @@ void ext_main(void *r)
 	class_addmethod(c, (method)globalForegroundWindow_minimize, "minimize", 0);
 	class_addmethod(c, (method)globalForegroundWindow_close, "close", 0);
 
+	class_addmethod(c, (method)globalForegroundWindow_isrunning, "isrunning", A_GIMME, 0);
 	class_addmethod(c, (method)globalForegroundWindow_set, "set", A_GIMME, 0);
 	class_addmethod(c, (method)globalForegroundWindow_size, "size", A_GIMME, 0);
 	class_addmethod(c, (method)globalForegroundWindow_pos, "pos", A_GIMME, 0);
@@ -200,7 +205,7 @@ void ext_main(void *r)
 	SYMnoProcName = gensym("<noProcName>");
 	SYMnoTitle = gensym("<noTitle>");
 
-	object_post(NULL,"11globalForegroundWindow 2022/01/30 11OLSEN.DE");
+	object_post(NULL,"11globalForegroundWindow 2022/03/10 11OLSEN.DE");
 
 	return 0;
 }
@@ -725,7 +730,7 @@ void globalForegroundWindow_do_setWithNum(t_globalForegroundWindow *x, t_symbol 
 
 	if (!IsWindow(hWnd))
 	{
-		object_error((t_object *)x, "invalid window number");
+		object_error((t_object *)x, "Could not find the window for num: %i", atom_getlong(argv));
 		return;
 	}
 
@@ -843,6 +848,67 @@ BOOL CALLBACK globalForegroundWindow_setWindowWithProcNameCallback(HWND hWnd, LP
 
 #pragma endregion
 
+#pragma region ISRUNNING
+void globalForegroundWindow_isrunning(t_globalForegroundWindow* x, t_symbol* s, long argc, t_atom* argv)
+{
+	defer_low(x, (method)globalForegroundWindow_do_isrunning, s, argc, argv);
+}
+void globalForegroundWindow_do_isrunning(t_globalForegroundWindow* x, t_symbol* s, long argc, t_atom* argv)
+{
+	t_atom as[3];
+	struct appNameAndTitle matchStruct;
+	if (!argc) return;
+
+	matchStruct.appNameToMatch = NULL;
+	
+	// get the string from arg 1
+	matchStruct.appNameToMatch = calloc(strlen(atom_getsym(argv)->s_name) + 1, sizeof(char));
+	strcpy(matchStruct.appNameToMatch, atom_getsym(argv)->s_name);
+
+	int result = EnumWindows(globalForegroundWindow_findWindowWithProcNameCallback, matchStruct.appNameToMatch);
+	if (result)
+		atom_setlong(as + 2, 0);
+	else
+		atom_setlong(as + 2, 1);
+
+	atom_setsym(as, gensym("isrunning"));
+	atom_setsym(as + 1, atom_getsym(argv)); //use input appname sym
+
+	outlet_list(x->outdump, 0L, 3, as);
+
+	if (matchStruct.appNameToMatch)
+		free(matchStruct.appNameToMatch);
+}
+
+BOOL CALLBACK globalForegroundWindow_findWindowWithProcNameCallback(HWND hWnd, LPARAM lparam)
+{
+	bool result = TRUE;
+
+	DWORD dwPID;
+	GetWindowThreadProcessId(hWnd, &dwPID);
+
+	char* path = NULL;
+	char* filename = NULL; // without extension
+
+	int success = globalForegroundWindow_getPathAndFilenameForPid(dwPID, &path, &filename);
+
+	if (success)
+	{
+		if (!strcmp(lparam, filename))
+		{
+			// it's a match 
+			
+			result = FALSE;
+			
+		}
+	}
+
+	if (filename)	sysmem_freeptr(filename);
+	if (path)		sysmem_freeptr(path);
+	return result;
+}
+#pragma endregion
+
 
 #pragma region QUITAPP*
 
@@ -911,7 +977,7 @@ BOOL CALLBACK globalForegroundWindow_closeWindowsWithPidCallback(HWND hWnd, LPAR
 			}
 			else
 			{
-				object_post(NULL, "not closing owned window");
+				;// object_post(NULL, "not closing owned window");
 			}
 			
 		}
